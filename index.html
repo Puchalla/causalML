@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Machine Learning in R: Workshop Series</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Marius Puchalla" />
+    <link rel="stylesheet" href="custom/xaringan-themer.css" type="text/css" />
+    <link rel="stylesheet" href="custom/custom-theme.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: left, middle, inverse, title-slide
+
+# Machine Learning in R:<br/>Workshop Series
+## causalML
+### Marius Puchalla
+### <em>Institute of Public Economics II </em>
+### 2020-08-20 (updated: 2020-11-30)
+
+---
+
+
+
+
+
+
+
+
+name: agenda
+
+##Agenda
+
+**1. Introduction to causalML**
+
+
+**2. The concepts within causality / methodology**
+  1. The language of causality
+  2. Potential outcomes
+  3. Average Treatment Effect
+  4. Issues with Treatment Effects
+  5. Heterogeneous Treatment Effects
+  6. Conditional Average Treatment Effects
+  7. Confounding Bias
+
+**3. Shortcomings of econometrics**
+
+**4. Propensity Score Matching**
+
+**5. Causal Tree Learning**
+
+**6. Other Techniques**
+  
+**7. Summarizing**
+
+**Literature ** 
+
+  
+
+???
+comment
+
+---
+
+class: middle, center, inverse
+
+#1	Introduction to causalML
+
+---
+
+background-image: url(https://cdn.fileinfo.com/img/icons/files/128/rproj-10013.png)
+background-position: 95% 5%
+background-size: 7.5%
+layout: true
+
+---
+##1. Introduction to causalML
+### Prediction and the reliance on correlations ###
+
+
+In machine learning we often focus on prediction tasks. These predictions are mainly based on observed correlations between variables.
+
+For many purposed prediction is all that we need. If we just want to predict the best strategy for now, correlations are probably the best way to go. 
+
+But, prediction is something very different from a causal relationship between two variables.
+
+---
+
+##1. Introduction to causalML
+### Prediction and the reliance on correlations ###
+
+Athey (2018) argues that 
+
+“Imagine first that a hotel chain wishes to form an estimate of the occupancy rates of competitors, based on publicly available prices. This is a prediction problem…(H)igher posted prices are predictive of higher occupancy rates, since hotels tend to raise their prices as the fill up (using yield management software). In contrast, imagine that a hotel chain wishes to estimate how occupancy would change if the hotel raised prices across the board… This is a question of causal inference. Clearly, even though prices and occupancy are positively correlated in a typical dataset, we would not conclude that raising prices would increase occupancy”
+
+
+
+---
+
+##1. Introduction to causalML
+### Prediction and the reliance on correlations ###
+
+With correlations and while using machine learning people tend to do so called __HARKing__ (Hypothesizing after the results are known). Coming from the data, one likes to believe that certain patterns in their data are unusual and their discovery is meaningful
+
+- However, in large data sets, patterns are inevitable and generally meaningless
+- __Calude and Longo (2017)__ prove that large amounts of data necessarily contain a large number of patterns and correlations waiting to be discovered.
+- __Ronald Coase (1988)__ "If you torture the data long enough, it will confess".
+
+This issue is often exposed, when the data and so far used “model” is applied to fresh data.
+---
+
+##1. Introduction to causalML
+### Prediction and the reliance on correlations ###
+
+- A pattern is generally considered to be statistically significant if there is less than a 5% chance that it would occur by luck alone.
+- This means that if we are so misguided as to only consider correlations between pairs of independently generated random numbers, we can expect 1 out of every 20 spurious correlations to pass the in-sample test, and 1 out of 400 to pass both the in-sample and out-of-sample tests
+- 10000 pairs of unrelated data can expect to find 25 correlations that are statistically significant both in-sample and out-sample.
+
+From this follows, that variables discovered through data mining might appear to be useful even when they are irrelevant.
+---
+
+##1. Introduction to causalML
+### Prediction and the reliance on correlations ###
+#### When is inference based on association enough?####
+
+Imagine our only task is to predict the likelihood of forest fires and we have the following correlation:
+
+&lt;img src="./Bilder/Correlation.png" width="60%" height="60%" style="display: block; margin: auto;" /&gt;
+
+---
+
+##1. Introduction to causalML
+### Prediction and the reliance on correlations ###
+#### When is inference based on association enough?####
+
+Coming from this correlation, we can easily train a model based on the sales of ice cream in a given month and predict the likelihood of forest fires in a region. 
+
+
+But do ice cream sales cause forest fires? __Highly unlikely!__ 
+
+Why is it important to make this distinction? Haven’t we used models that show good predictability that we can use for the prediction?
+
+The prediction qualities of our model can be very high, which implies that we have a good track record of predicting Y given X. However, all that we have used so far are mere correlations of the variables. Why are correlations not enough?
+
+---
+
+##1. Introduction to causalML
+### Prediction and the reliance on correlations ###
+#### When is inference based on association DANGEROUS?####
+
+Given this example, one can argue that the sales of ice creams is a good predictor for forest fires.
+
+But do ice cream sales cause forest fires?
+
+Associative relationships are not enough to develop the causal understandings necessary to inform intervention recommendations.
+There is a third, underlying variable, temperature! 
+
+
+---
+
+
+##1. Introduction to causalML
+### Prediction and the reliance on correlations ###
+#### When is inference based on association DANGEROUS?####
+
+
+Evaluating job applicants discriminated against women who had gone to women’s colleges or belonged to women’s organisations because there were few women in the algorithms data base of current employees __(Dastin (2018))__.
+
+Without causal inference techniques, you cannot mathematically verify that any event directly or indirectly causes any particular target event.
+
+Further, many machine learning models tend to operate as a black box which do not allow for inference where we can specifically say, how much each variable contributes to the result.
+
+
+---
+
+##1. Introduction to causalML
+### Aim of this presentation ###
+
+- Give a good understanding of the issues of causality.
+- Show what issues arise in causality and why we need to change
+- How do you solve the arising issues with machine learning techniques?
+- Overall, create awareness of the issues in general. 
+
+
+---
+
+class: middle, center, inverse
+
+#2	The concepts of causality and methodology
+
+---
+
+background-image: url(https://cdn.fileinfo.com/img/icons/files/128/rproj-10013.png)
+background-position: 95% 5%
+background-size: 7.5%
+layout: true
+
+---
+
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+#### What does causality actually mean? What is inference?
+
+The most common inference task that requires an understanding of causal relationships is a __intervention recommendation task__, or task in which an analyst must decide how best to make an intervention in order to achieve a desired outcome. Standard statistical analysis only enables analysts to infer associate relationships between variables. 
+
+__Inference__ means, that we can easier generalize data since we can make judgments about how a variable X influences variable Y. Causal inference is arguably the most important goal in econometrics.
+
+__Causal inference__ is an important way to improve generalization.  Machine Learning models often are not robust enough to handle changes in the input data type and cannot always generalize well. By contrast, causal inference explicitly overcomes this problem by considering what __might__ have happened when faced with a lack of information (__counterfactuals__). Ultimately, this means we can utilize causal inference to make our ML models more robust and generalizable.
+
+---
+##2. The concepts of causality and methodology
+### The language of causality ###
+#### What does causality actually mean? What is inference?
+
+The gold standard for inferring causal effects is __randomized controlled trials (RCTs)__ or A/B tests.
+In RCTs, we can split a population of individuals into two groups: treatment and control.  
+
+Administering treatment to one group and nothing (or a placebo) to the other and measuring the outcome of both groups. Assuming that the treatment and control groups are not too dissimilar, we can infer whether the treatment was effective based on the difference in outcome between the two groups.
+
+However, in reality controlled experiments are either expensive and/or non ethical.
+
+---
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+
+__Generalization:__ Models ability to adapt properly to new, previously unseen data, drawn from the same distribution as the one used to create the model:
+
+- Inform policy-makers, legislators, and managers about the likely impact of actions by uncovering quantitative relationships in statistical data.
+- Since the end of the 1980s, an extensive literature on causal inference (Pearl and Mackenzie (2018)
+  - Builds on the graph-theoretic approach to causality developed by Pearl (1995)
+  -	Interest emerged from older AI techniques such as Markov random fields and Bayesian nets (Pearl (1988))
+  
+Judea Pearl and Dana Mackenzie’s “The Book of Why. The New Science of Cause and Effect” highlights the main limitations of current machine learning solutions and the causal inference challenge. 
+They note that the hype that big data will solve many of the big challenges we face is misplaced.
+Since most ML methods are mainly concerned with correlation rather then causation they are good for finding patterns in terms of data, but cannot explain how they are connected.
+
+---
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+
+__Causality:__ influence by which one event, process or state, a cause, contributes to the production of another event, process or state, an effect, where the cause is partly responsible for the effect is partly dependent on the cause.
+
+The ability to uncover the causes and effects of different phenomena in complex systems would help us build better solutions in areas as diverse as health care, justice and agriculture. Indeed, these areas should not take risks when correlations are mistaken for causation.
+
+
+---
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+#### The three stages of causality by Judea Pearl####
+
+1) __Association__ "Whaf if I see...?"
+  - How would seeing X change my belief in Y
+  - Association is statistical relationships defined by the data
+  
+2) __Intervention__ "What if I do...? How?"
+  - If I take aspiring, will my headache be cured?
+  - Intervention is about estimating the effect if one performs an action, or one has the ability to reason about the causal structure about the variables on the system.
+  
+3) __Counterfactuals__ "What if I had done...? Why? Was it X that caused Y? What if X has not occurred? What if I had acted differently?
+  - I took aspirin and my headaches went away. Would my headaches be gone without the aspirin?
+
+---
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+#### Structual Causal Models (SCM) ####
+
+The language that we rely on here is referred to the class of __Structural Causal Models (SCM)__ based on the work of Judea Pearl.
+The first known SCM was used by Sewell Wright (1918). It was used for inferring the relative importance of factors which determine the birth weight of guinea pigs.
+&lt;img src="./Bilder/Pigs.png" width="70%" height="75%" style="display: block; margin: auto;" /&gt;
+
+---
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+#### Structual Causal Models (SCM) ####
+
+A structual causal model is comprised of three components:
+
+1) A __set of variables__ (explanatory variables, outcome variables, unobserved variables)
+  - Explanatory and outcome variables are both observed
+  - Unobserved variables are so called "Background Processes"
+  - In an SCM, observed variables are represented by an arbitrary single letter variable name, while unobserved variables are represented by the letter u, with an arbitrary single letter subscript
+  
+2) __Causal relationships__ that describe the causal effect variables have on one another
+  - The relationships are using the assignment operator  `\(\leftarrow\)` and function notation `\((f)\)` with a subscript labeling the variable which they effect.
+  - These relationships are typically `\(i \leftarrow f_i(u_t)\)`
+  
+3) A __probability distribution__ defined over unobserved variables in the model, describing the likelihood that each variables takes a particular value.
+
+---
+##2. The concepts of causality and methodology
+### The language of causality ###
+#### Directed Acyclic Graphs (DAG) ####
+
+The __Directed Acyclic Graph (DAG)__ are commonly used to describe corresponding effects.
+  - A DAG is a graph, comprised of __nodes__ and __edges__, for which the direction of an edge determines the relationship between the two nodes on either side.
+  - DAGs also do not have any cycles of paths comprised of at least one edge that start and end with the same node.
+
+&lt;img src="./Bilder/DAG.png" width="70%" height="75%" style="display: block; margin: auto;" /&gt;
+
+---
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+#### Structual Causal Models (SCM)
+
+The SCM from the Ice Cream and Forest Fire example can be written as: 
+
+`\(i \leftarrow f_i(u_t)\)`
+
+`\(f \leftarrow f_f(u_t, i)\)`
+
+Where `\(i\)` is the consumption of Ice Cream as a function of the unobserved temperature `\(u\)` and `\(f\)` is the number of Forest Fires as a function of the unobserved temperature `\(u\)` and the Ice Cream consumption.
+
+Causal graphs are the DAG representation of Structural Causal Models.
+---
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+
+
+__Hypothesized causal relationships__ of __observed variables__ amongst outcome and explanatory variables are represented by solid arrows in the direction of causality. A SCM which defines a single causal relationship between an outcome variable:
+
+`\(o \leftarrow f_o(e)\)`
+
+&lt;img src="./Bilder/ObsVar.png" width="60%" height="60%" style="display: block; margin: auto;" /&gt;
+__Hypothesized possible causal relationships__ of __unobserved variables__ are portray with dashed lines.
+
+`\(o \leftarrow f_o(u)\)`
+
+&lt;img src="./Bilder/UnObsVar.png" width="60%" height="60%" style="display: block; margin: auto;" /&gt;
+
+
+
+---
+
+
+##2. The concepts of causality and methodology
+### The language of causality ###
+Example of two unobserved variables which have a possible causal relationship: 
+
+- `\(e \leftarrow f_a(u_a)\)`
+- `\(o \leftarrow f_i(u_b, e)\)`
+- `\(u_a \not\!\perp\!\!\!\perp u_b)\)` (means not independent from each other)
+
+
+&lt;img src="./Bilder/UnObsVar2.png" width="70%" height="75%" style="display: block; margin: auto;" /&gt;
+
+---
+
+##2. The concepts of causality and methodology
+### Potential outcomes ###
+
+Following the potential outcome framework introduced by Rubin, the __treatment effect__ of an individual is defined as follows: 
+- `\(y_i = Y_i(1) - Y_i(0)\)` where `\(Y_i(1)\)` indicated the __potential outcome__ of the individual `\(i\)` __with__ treatment and contrary `\(Y_i(0)\)` denotes the __potential outcome__ for the individual `\(i\)` __without__ treatment
+
+
+However, as an individual can either receive the treatment or not, and thus, we can only ever observe __ONE__ of the two potential outcomes for an individual at one point in time, the individual treatment in unobservable. We are now in the realm of counterfactuals: what would have been if `\(i\)`, who received treatment, did not in an alternative universe where everything is the same, expect that `\(i\)` did not receive treatment.
+
+Lets go deeper into the world of __counterfactuals__: 
+
+Counterfactual questions are generally answered by analyzing data with some variation in the explanatory variable which defines two separate hypothetical universes. These potential outcomes or "hypothesis" describe the values of outcome variables in the hypothetical universes for which certain explanatory variables have particular values.
+---
+
+##2. The concepts of causality and methodology
+### Potential outcomes ###
+
+Example: Altering emails we send out to customer/subscribers regarding opening the link in the email
+
+- Explanatory variable: Images in the email `\((I)\)`
+- Outcome variable: Opens Link `\((O)\)`
+- Individual: `\(i\)`
+- `\(O \leftarrow f_i(I)\)`
+
+The corresponding causal graph is: 
+&lt;img src="./Bilder/Email1.png" width="70%" height="75%" style="display: block; margin: auto;" /&gt;
+
+---
+
+##2. The concepts of causality and methodology
+### Potential outcomes ###
+#### The indicator variable
+
+
+&lt;img src="./Bilder/Email2.png" width="70%" height="75%" style="display: block; margin: auto;" /&gt;
+
+In potential outcome models, the indicator variable is called the __treatment variable__ 
+
+-while `\(X_i=1\)` is referred to as the __treatment__ and individual `\(i\)` is __treated__ 
+
+-while for `\(X_i=0\)` the individual is __untreated__
+
+
+---
+
+##2. The concepts of causality and methodology
+### Potential outcomes ###
+
+
+The __potential outcomes__ are mathematical variables in two hypothetical universes. The hypothetical universes are generally portrayed by using a superscript added to a particular outcome variable:
+
+- `\(Y_i^1\)` is the potential __outcome observed__ when its corresponding explanatory variable is `\(X_i=1\)` 
+- `\(Y_i^0\)` is the potential __outcome observed__ when its corresponding explanatory variable is `\(X_i=0\)`
+
+In our example this means:
+
+&lt;img src="./Bilder/Email3.png" width="70%" height="75%" style="display: block; margin: auto;" /&gt;
+
+---
+
+##2. The concepts of causality and methodology
+### Potential outcomes ###
+
+
+__Treatment Effect__ or __causal effect__ is the differential between the two __“hypothetical universes”__ In more detail, for a particular observed individual `\(i\)`, the difference `\(\delta_i\)` between the two potential outcomes `\(Y_i^1\)` ($i$ gets treatment) and `\(Y_i^0\)` ($i$ does not get treatment).
+
+If I were to observe both values I would have an exactly calculable treatment effect.
+
+Observable outcomes are the outcomes we eventually observe:
+
+- Outcome Variable `\(Y\)`  and Indicator Variable `\(X\)` 
+- `\(Y_i = X_i Y_i^1 + (1-X_1)Y_i^0\)`
+
+For our example, the observable outcome `\(O_i\)` and Indicator `\(I_i\)`  
+- `\(O_i = I_i O_i^1 + (1-I_i)O_i^0\)`
+
+Here we can see the __fundamental problem of causal inference__, it is impossible to observe `\(Y_i^0\)` and `\(Y_i^1\)` at the same time (or `\(O_i^1\)` and `\(O_i^0\)`)!
+
+---
+
+##2. The concepts of causality and methodology
+### Average Treatment Effect ###
+
+The __Average Treatment Effect (ATE)__ is the average of all treatment effects identified for __all individuals__. It is typically used for A/B testing or randomized experiments to identify generalizable estimations.
+
+`\(ATE = E[\delta_i] = E[Y_i^1 - Y_i^0]\)` where E[] is the expected value
+
+Another way of presenting this (in the terms of Judea Pearl) would be:
+`\(ATE = E[Y|do(X=1)] - E[Y|do(X=0)]\)`
+
+Where `\(do(X=1)\)` means treating the subjects with medicine, and `\(do(X=0)\)` means treating the subject with placebo. The `\(do\)` operator represents intervention; it removes all incident edges to X and sets X to be a fixed value:
+
+&lt;img src="./Bilder/ATE1.png" width="40%" height="40%" style="display: block; margin: auto;" /&gt;
+However, we refrain from using this more detailed notation.
+
+
+---
+
+##2. The concepts of causality and methodology
+### Average Treatment Effect ###
+
+The following mock dataset is drawn from two different hypothetical universes:
+
+&lt;img src="./Bilder/ATE2.png" width="15%" height="15%" style="display: block; margin: auto;" /&gt;
+
+This gives us the following: `\(ATE = E[\delta_i] = E[O_i^1] - E[O_i^0] = \frac{6}{8}-\frac{2}{8} = \frac{1}{2}\)`
+
+Here, we have the hypothetical values where we can observe `\(Y_i^1\)` and `\(Y_i^0\)`.
+But, we can only see observable outcomes: 
+- Behaviour of the treated individuals when given treatment
+- Behaviour of the untreated individuals when __NOT__ given treatment
+
+---
+
+##2. The concepts of causality and methodology
+### Average Treatment Effect ###
+
+__Average Treatment Effect of the treated (ATT)__ is the effect for individuals which are treated and the explanatory variable X is equal to 1.
+
+`\(ATT = E[\delta_i|X_i = 1] = E[Y_i^1 - Y_i^0|X_i = 1] = E[Y_i^1|X_i=1] - E[Y_i^0|X_i=1]\)`
+
+`\(= \sum_{i=1}^{N_T}(y_i^1|x_i=1) - \sum_{i=1}^{N_T}(y_i^0|x_i=1)\)`
+
+
+__Average Treatment Effect of the untreated (ATU)__ is the effect for individuals which are untreated and the explanatory variable X is equal to 0.
+
+`\(ATU = E[\delta_i|X_i = 0] = E[Y_i^1 - Y_i^0|X_i = 0] = E[Y_i^1|X_i=0] - E[Y_i^0|X_i=0]\)`
+
+`\(= \sum_{i=1}^{N_T}(y_i^1|x_i=0) - \sum_{i=1}^{N_T}(y_i^0|x_i=0)\)`
+
+
+Where `\(N_T\)` is the number of __treated__ individuals.
+
+---
+
+##2. The concepts of causality and methodology
+### Average Treatment Effect ###
+
+&lt;img src="./Bilder/ATE3.png" width="20%" height="20%" style="display: block; margin: auto;" /&gt;
+
+`\(ATU = E[\delta_i|I_i = 0] = E[O_i^1|I_i=0] - E[O_i^0|I_i=0]=\frac{1+1+1+0}{4} - \frac{0+0+1+0}{4} = \frac{1}{2}\)` 
+
+
+
+`\(ATT = E[\delta_i|I_i = 0] = E[O_i^1|I_i=0] - E[O_i^0|I_i=0]=\frac{1+1+1+0}{4} - \frac{0+0+1+0}{4} = \frac{1}{2}\)` 
+
+
+
+
+
+---
+
+##2. The concepts of causality and methodology
+### Average Treatment Effect ###
+
+Note, that just like the ATE, the ATT and ATU __CANNOT__ be calculated. While we can calculate `\(E[Y_i^1|X_i = 1]\)` in order to calculate the ATT, we also need `\(E[Y_i^1|X_i = 0]\)`, the mean outcomes of treated individuals in the hypothetical universe for which they did not receive treatment.
+
+The same goes for `\(E[Y_i^0|X_i = 0]\)` which we can calculate while `\(E[Y_i^1|X_i = 0]\)` we __CANNOT__.
+
+---
+
+##2. The concepts of causality and methodology
+### Issues with Treatment Effects ###
+#### Simple Difference in Mean Outcomes####
+
+We can calculate: 
+- `\(E[O_i^1|I_i = 1]\)` which is the click rate of people who got an email WITH images
+- `\(E[O_i^0|I_i = 0]\)` which is the click rate of people who got an email WITHOUT images
+
+The __Simple Difference in Mean Outcomes (SDO)__  is the main mechanism to calculate the ATEs
+
+`\(SDO = E[Y_i^1|X_i=1] - E[Y_i^0|X_i = 0] = \frac{1}{N_T}\sum_{i=1}^n(y_i|x_i = 1) - \frac{1}{N_U}\sum_{i=1}^n(y_i|x_i = 1)\)`
+
+Where `\(N_T\)` is the number of observed individuals who are __treated__ and `\(N_U\)` the number of observed individuals who are __untreated__.
+
+---
+
+##2. The concepts of causality and methodology
+### Issues with Treatment Effects ###
+#### Simple Difference in Mean Outcomes####
+
+For our example follows: 
+
+`\(SDO = E[Y_i^1|X_i=1] - E[Y_i^0|X_i = 0] = \frac{1}{4}(1+1+1+0) - \frac{1}{4}(0+1+0+0)= \frac{1}{2}\)`
+
+However, this is not the stop for calculating the ATE since both are not necessarily equivalent! The SDO has two main sources of bias which lead to the following identity:
+
+`\(E[Y_i^1|X_i=1] - E[Y_i^0|X_i = 0] = ATE\)` 
+
+`\(+ E[Y^0|X_i = 1] - E[Y^0|X_i = 0]\)` __(Selection Bias)__
+
+`\(+ (1-\pi)(ATT - ATU)\)` __(Heterogeneous Treatment Effect Bias)__
+
+---
+
+##2. The concepts of causality and methodology
+### Issues with Treatment Effects ###
+#### Selection Bias####
+
+People who make different choices may experience different outcomes not because of their choices but because of the types of people who make such choices. 
+
+We rarely put strong assumptions on the data generation process. Indeed, given train and test data that are sampled from the same distribution, we typically find the model with the highest predictive power. 
+
+
+Example: “cat falling from higher stories have fewer injuries that cats falling from lower down”
+- Bias induced by the fact that cats, that do not make it don’t “go” to the hospital but are left out of the sample.
+- The dataset was constructed from veterinarian reports.
+
+
+---
+##2. The concepts of causality and methodology
+### Issues with Treatment Effects ###
+#### Selection Bias####
+
+Basically, there  are __two different types__ of selection biases:
+S is a binary indicator of whether or not the corresponding observation is missing from the dataset. 
+
+The bias on the __left__ is harmless for the analysis as the missing is determined by the cause (i.e. floor number...).
+
+In contrast, in the __right__ the missing is not independent of the outcome given the cause and hence should be specifically accounted for.
+
+&lt;img src="./Bilder/SelectionBias.png" width="30%" height="30%" style="display: block; margin: auto;" /&gt;
+
+---
+
+##2. The concepts of causality and methodology
+### Issues with Treatment Effects ###
+#### Selection Bias####
+
+Imagine two of the people in our mailing list are our __friends__ (bold) and they are keen on finding out what we are doing. From this follows a selection bias since this sample is not consisting of random people anymore.
+
+&lt;img src="./Bilder/SelectionBias2.png" width="20%" height="20%" style="display: block; margin: auto;" /&gt;
+
+`\(SDO = E[O_i^1|I_i=1] - E[O_i^0|I_i=1] = \frac{1}{4}(1+1+1+1) - \frac{1}{4}(0+0+0+0) = 1\)` 
+
+This is a huge effect, which would mean our implemented treatment (image in email) lead to an increase of __100%__ of the response rate!
+
+---
+
+##2. The concepts of causality and methodology
+### Issues with Treatment Effects ###
+#### Selection Bias####
+
+But since our friends are in treatment group we introduce a sampling bias into our result:
+
+`\(Sampling Bias = E[O_i^1|I_i=1] - E[O_i^0|I_i=1] = \frac{1}{4}(0+1+1+0) - \frac{1}{4}(0+0+0+0) = \frac{1}{2}\)`
+
+For this example, the Sampling Bias is __equal__ to the __average treatment effect__.
+
+Here, we have no __heterogeneous treatment effects__. 
+
+In order to ensure my estimated ATE is not distorted due to sampling bias, I must ensure treatment assignment strategy does not yield a significant difference in the potential outcome given no treatment `\((Y_i^0)\)` of treated and untreated individuals.
+
+-Which pretty much means, that we need a random sample from a large population.
+
+---
+
+##2. The concepts of causality and methodology
+### Heterogeneous Treatment Effects###
+
+__Heterogeneous Treatment Effects (HTEs)__ characterize differing responses to treatment from different portions of the population. For example, we want to estimate the effect of subsidized training programmes on earnings.
+
+As individual treatment effects are __unobservable__, the practice focuses on estimating unbiased and consistent averages of the individual treatment effect.  Normally we go for the ATE but some treatment effects may vary widely between different subgroups in the population.
+
+When using the SDO to estimate ATEs, we must be cautious of differing responses to treatment between  __treated__ individuals and __untreated__ individuals, as it incurs bias which obscures our estimate of the ATE of an entire population:
+- Such bias is called __Heterogeneous Hreatment Effect Bias__. This arises when untreated individuals have a systematically different response to treatment than treated individuals, then the SDO, which only incorporates the treatment response from treated individuals, will be systematically different than the true ATE of a given sample population.
+
+`\(Heterogeneous Treatment Effect Bias = (1 - \pi)(ATT-ATU)\)` 
+
+where `\(\pi\)` is the share that are treated and `\(1-\pi\)` is the share of people untreated.
+
+---
+
+##2. The concepts of causality and methodology
+### Heterogeneous Treatment Effects###
+
+Now lets assume, that our __friends__ (bold) hate us and we don’t know that. This means, even when treated with the images in the email, they will not open them. This would result in the following table: 
+
+&lt;img src="./Bilder/HTE1.png" width="20%" height="20%" style="display: block; margin: auto;" /&gt;
+The resulting SDO from this treatment assignment is thus:
+
+`\(SDO = E[O_i^1|I_i=1] - E[O_i^0|I_i=1] = \frac{1}{4}(1+1+0+0) - \frac{1}{4}(0+0+0+1) = \frac{1}{4}\)`
+
+This is much lower than the previously calculated ATE of 50%!
+
+---
+##2. The concepts of causality and methodology
+### Heterogeneous Treatment Effects###
+
+Here, ATT is much lower than ATU, since ATT includes our "friends" which leads us to:
+
+`\(ATT = E[\delta_i|I_i = 1] = E[O_i^1|I_i = 1] - E[O_i^0|I_i = 1] = \frac{1+1+0+0}{4} - \frac{0+1+0+0}{4} = \frac{1}{4}\)`
+
+`\(ATU = E[\delta_i|I_i = 0] = E[O_i^1|I_i = 0] - E[O_i^0|I_i = 0] = \frac{1+1+1+1}{4} - \frac{0+0+1+0}{4} = \frac{3}{4}\)`
+
+Thus, our resulting __Heterogeneous Treatment Effect Bias__ with `\(\pi = \frac{1}{2}\)` is:
+
+`\(Heterogeneous Treatment Effect Bias = (1-\pi)(ATT-ATU) = (1-\frac{1}{2}(\frac{1}{4}-\frac{3}{4}) = -\frac{1}{4}\)`
+
+Here the SDO `\(\frac{1}{4}\)` minus the HTE Bias `\(-\frac{1}{4}\)` is equal to the ATE.
+
+In order to ensure my estimated ATE is not distorted due to sampling bias, I must ensure that my treatment assignment strategy does not yield a significant difference in the potential outcome given treatment `\((Y_i^1)\)` of treated and untreated individuals. 
+
+---
+
+##2. The concepts of causality and methodology
+### Conditional Average Treatment Effects###
+The following causal inference task we are interested in revolves around identifying a subset of consumers for which exposure to an ad will have the greates effect on their subsequent purchasing decision.
+
+Our __Explanatory Variable__ of interest will be __Ad Exposure__ `\(A_i\)`: Measuring whether or not an individual was exposed to an ad from my brand
+
+Confounding variables that define our consumers:
+- __Past Behaviour__ `\(B_i\)`: Measures the past browsing behaviour of individual customers.
+- __Demographic__ `\(D_i\)`:  Measures the groups individual consumers belong to.
+- __Psychograph__ `\(S_i\)`:  Measures the interests, values and personality traits.
+
+Our __outcome variable__ of interest is __Purchase__ `\(P_i\)`, which defines whether or not the customer purchases the marketed good within a month of seeing an ad from my campaign
+
+---
+
+##2. The concepts of causality and methodology
+### Conditional Average Treatment Effects###
+The resulting causal graph is as follows:
+&lt;img src="./Bilder/HTE2.png" width="70%" height="70%" style="display: block; margin: auto;" /&gt;
+
+---
+##2. The concepts of causality and methodology
+### Conditional Average Treatment Effects###
+We want to estimate the expected treatment effect of a particular consumer conditional on a set of explanatory variables describing them. The __Conditional Average Treatment Effect (CATE)__ can be defined as function `\(\tau(z)\)`, which specifies the size of a treatment effect given value of confounding variable `\(Z\)` as follows:
+`\(\tau(z) = E[Y_i^1 - Y_i^0|Z_i = z]\)`  where `\(Y_i^1 - Y_i^0\)` is the difference in potential outcomes. 
+
+For our specific example follows:
+`\(\tau(b,d,s) = E[P_i^1 - P_i^0|B_i = b, D_i = d, S_i = s]\)`
+
+We want to maximize `\(\tau (b,d,s)\)`
+
+Simplifying, we only control for Age which we can observe an we coin into a Indicator Variable `\(I_i\)` which is 1 for under 21 and 0 for over 21.
+
+`\(\tau(o) = E[P_i^1 - P_i^0|O_i = o]\)`
+---
+##2. The concepts of causality and methodology
+### Conditional Average Treatment Effects ###
+
+Imagine we have the following observations:
+&lt;img src="./Bilder/HTE3.png" width="20%" height="20%" style="display: block; margin: auto;" /&gt;
+`\(\tau(1) = E[P_i^1|o=1] - E[P_1^0|o=1] = \frac{1}{4}(1+1+1+1) - \frac{1}{4}(0+0+1+0) = \frac{3}{4}\)`
+
+`\(\tau(0) = E[P_i^1|o=0] - E[P_1^0|o=0] = \frac{1}{4}(1+0+0+0) - \frac{1}{4}(0+0+0+0) = \frac{1}{4}\)`
+
+From this follows: 
+- Given that an individual is over 21, exposure to my ad makes them 75% more likely to make a purchase!
+- Given that an individual is under 21, exposure to my ad makes them 25% more likely to make a purchase!
+---
+##2. The concepts of causality and methodology
+### Conditional Average Treatment Effects ###
+#### Estimating CATE####
+
+However, we CANNOT calculate `\(P_i^1 - P_i^0\)` since I can only observe one of them. Thus we need to __estimate__ `\(P_i^1 - P_i^0\)`
+
+In order to estimate `\(P_i^1 - P_i^0\)` for an individual consumer an analyst will often leverage variation in the value of an explanatory variable `\(X_i\)` of interest as is common with many causal inference.
+
+We need to find two individuals `\(i\)` and `\(j\)` which are similar in regards of their confounding variables `\(Z\)`. From this follows:
+
+`\(\tau(z) = E[Y_i^1|Z_i = z] - E[Y_i^0|Z_i = z] \approx E[Y_i^1|Z_i \approx z] - E[Y_j^0|Z_j \approx z]\)`
+
+Staying in our example of convincing customers with ads, when we classify based on Age ($A$):
+
+`\(\tau(a) = E[P_i^1 - P_i^0|A_i = a] = E[P_i^1|A_i = a] - E[P_i^0|A_i=a] \approx E[P_i^1|A_i \approx a] - E[P_j^0|A_j \approx a]\)`
+
+Once we split individuals into subgroups, we can take the difference of the means of the indicator variable __Purchase__ between __treated__ and __untreated__ individuals within each subgroup  in order to estimate a CATE function `\(\tau(a)\)` conditional on the age of each observed individual.
+
+
+---
+##2. The concepts of causality and methodology
+### Conditional Average Treatment Effects ###
+#### Estimating CATE####
+
+The process of connecting two individuals with each other is called __matching__. If I am using __matching__ to condition on a single confounding variable `\(Z\)`, by taking the mean of difference between the purchasing decisions between the similiar individuals in each pair exposed and unexposed to treatment, I can calculate the following value
+
+`\(\tau(z) = E[Y_i^1|Z_i \approx z] - E[Y_j^0|Z_j \approx z]\)`
+
+And achieve an estimate of the conditional average tratment effect `\(\tau(z)\)` at each values z which corresponds to a match.
+
+---
+
+##2. The concepts of causality and methodology
+### Conditional Average Treatment Effects ###
+#### Bias in Estimating CATE####
+
+We must condition our estimate on all confounding variables that we have access to. This is because treatment and potential outcomes of an observed individual are __conditionally independent__ given these confounding variables, meaning that when these confounding variables are constant, there is no additional correlation distorting an analysts estimate of a causal effect.
+
+Achieving an unbiased estimate of a conditional average treatment effect is only easy in an ideal scenario and analysts often seek to produce causal inference insights leveraging data which is leass than ideal.
+
+The principal barrier to this ideal scenario is an upper limit on the number of confounding variables which can be effectively conditioned on. While an analyst might be tempted to condition their estimate on every possible confounding variable they can measure, an increase in the number of conditioned confounding variables (a value commonly refered to in casual inference literature the __dimensionality__ of analyzed data) diminshes the amount of observed individuals within each "similar" group identified with matching or subclassification.
+---
+
+
+##2. The concepts of causality and methodology
+### Confounding Bias ###
+
+A variable that has an effect on both the outcome and explanatory variable of interest is known as a confounding variable. This leads to so called confounding bias.
+Now we expand the observable outcome scenarios by allowing for more potential outcomes Yx. For our desired causal relationship it must hold that 
+
+`\(Y_x \not\!\perp\!\!\!\perp X)\)`
+
+Confounding bias obscures the SDO for ATE estimations, as it does for a variety of estimators designed to estimate many kinds of treatment effects. As a result, eliminating confounding bias is the main focus of a great deal of causal inference literature.
+
+Often times, even when an explanatory variable and a set of potential outcomes are not independent, they will be conditionally independent with respect to some set of confounding variables `\(Z\)`, meaning that  `\(X\)` and potential outcomes  `\(Y_x\)` are independent as long as the variables in  `\(Z\)` are held constant. 
+
+`\(Y_x \!\perp\!\!\!\perp X|Z\)`
+
+The variables `\(Z\)` are also called __back-door admissible__ and ensure that `\(Y_x\)` and `\(X\)` are conditionally independent, enabling the estimation of a causal effect from an explanatory variable on an outcome variable!
+
+---
+
+class: middle, center, inverse
+
+#3.	Shortcomings of econometrics
+
+---
+
+background-image: url(https://cdn.fileinfo.com/img/icons/files/128/rproj-10013.png)
+background-position: 95% 5%
+background-size: 7.5%
+layout: true
+
+---
+##3. Shortcomings of econometrics
+### Extending the framework to Regressions###
+
+In most cases, the SDO estimation of an ATE can be calculated with a linear regression. Consider the following switching equation:
+
+`\(Y_i = X_i Y_i^1 + (1-X_i)Y_i^0\)`
+
+Rewriting the equation leads us to:
+
+`\(Y_i = X_i Y_i^1 + Y_i^0 - X_i Y_i^0 = X_i Y_i^1 - X_i^0 + Y_i^0 = X_i(Y_i^1 - Y_i^0) + Y_i^0 = X_i \delta_i + Y_i^0\)`
+
+Thus the ATE can be interpreted as a regression of treatment on an observed individual `\(i\)` on their observed outcome `\(Y_i\)` with a constant term `\(Y_i^0\)` representing an individual’s outcome in the absence of treatment `\((X_i=0)\)`. 
+
+The biases we have just defined are calculated with values which we CANNOT observe!
+---
+
+##3. Shortcomings of econometrics
+### Extending the framework to Regressions###
+
+__Sampling bias__ (defined as `\(E[Y_i^0|X_i=1] - E[Y_i^0|X_i=0]\)`) contains the term `\(E[Y_i^0|X_i=1]\)` which is the mean outcome of treated individuals, in a hypothectial universe in which they did not receive treatment, this is a hypothetical universe we CANNOT observe, and for which we CANNOT measure outcomes.
+
+Similarly, recall that ATT and ATU __CANNOT__ be calculated solely from observed outcomes and thus __heterogeneous treatment effect bias__ (defined as `\((1-\pi)(ATT-ATU)\)`) also CANNOT be calculated.
+
+Most techniques used to discard bias from an ATE estimate ensure that individuals are assigned treatment such that `\(X_i\)` is independent from potential outcomes `\(Y_i^0\)` and `\(Y_i^1\)`. From probability theory, if `\(X_i\)` is independent from both, then
+
+`\(E[Y_i^1|X_i = 1] = E[Y_i^1|X_i = 0] = E[Y_i^1]\)` and `\(E[Y_i^0|X_i = 1] = E[Y_i^0|X_i = 0] = E[Y_i^0]\)`
+
+It follows: `\(SDO= E[Y_i^1|X_i = 1] - E[Y_i^0|X_i = 0] = E[Y_i^1] - E[Y_i^0] = ATE\)`
+
+As a result, both __Heterogeneous Treatment Effect Bias__ and __Sampling Bias__ are eliminated!
+
+---
+
+##3. Shortcomings of econometrics
+### Extending the framework to Regressions###
+
+In __experimental studies__ were we have control over the treatment assignment we can try to ensure random treatment assignment to individuals from independent probability distributions. The randomizing of the treatment enables the SDO to be an unbiased estimate of ATE, but in order to minimize variance of the estimate as well, the SDO must be calculated based on a __sufficiently large sample population__. 
+
+But many of the interesting questions that we want to answer can only be answered with __observational studies__. Here, we cannot control the treatment assignment and we must design a strategy to obtain an unbiased estimate of a treatment effect. 
+
+Often, __natural experiments__ are used for this or we try to eliminate bias with __confounding variables_ or we use variables which have a established __causal effect__ on explanatory and outcome variable.
+---
+
+##3. Shortcomings of econometrics
+
+Traditionally you use __Multiple Linear Regression__ with interaction terms between the variables of interest (i.e. the ones which might lead to treatment heterogeneity) and the treatment indicator. 
+Lets assume a randomized experiment, such that the assumptions to identify treatment effects are valid without further complications. 
+
+-&gt; Treatment effect depends on the variables whose interaction term is statistically significant
+
+`\(Y = \beta_0 + \beta_1w + \beta_2x_1 + \beta_3(w*x_1)\)`
+
+Where `\(w\)` is the treatment indicator and `\(x_1\)` is the variable of interest. In that case, if `\(\beta_3\)` is significant, we know that the treatment effect depends on variable `\(x_1\)`. The treatment effect for each observation can then be calculated as
+
+`\(\beta_1 + \beta_3 * x_1\)`
+
+
+---
+##3. Shortcomings of econometrics
+
+Why do we need more advanced methods? 
+
+What if we include not only one variable which might influence the treatment effect. 
+
+To see which variables predict heterogeneous treatment effects, we have to include __many interaction terms__, not only between each variable and the treatment indicator but also for all possible combinations of variables with an without the treatment indicator. 
+
+If we have p variables and one treatment, this gives a total number of parameters of: 
+
+`\(\sum_{k=0}^{p+1} {p+1 \choose k}\)`
+
+If we have 5 variables, we would have to include a total number of 64 parameters into our Linear Regression Model. This approach suffers from a lack of statistical power and could cause statistical issues. 
+
+The use of Multiple Linear Regression also imposes __linear relationships__ unless more interactions with polynomials are included. 
+
+
+
+---
+##3. Shortcomings of econometrics
+
+#### The curse of dimensionality
+The curse of dimensionality is a paradox describing situation in which leveraging more information in an analysis can decrease the accuracy of a CATE estimate. Only with caution can we obtain unbiased CATE estimates.
+
+Perhaps, automated processes can help in the process. Leveraging a machine learning technique can spend time and help us prevent to spend unneccessary time working on theoretical models. 
+
+From this follows that we need to introduce machine learning methods to deal with this.
+
+ML algorithms can handle enormous numbers of variables and combining them in nonlinear and highly interactive ways, researchers have found ways to better estimate heterogeneous treatment effects by combining the field of ML and the study of Causal Inference.
+---
+
+class: middle, center, inverse
+
+#4	Propensity Score Matching
+
+---
+
+background-image: url(https://cdn.fileinfo.com/img/icons/files/128/rproj-10013.png)
+background-position: 95% 5%
+background-size: 7.5%
+layout: true
+---
+##4. Propensity Score Matching
+
+We already talked about __matching__ in CATE. One method of performing the matching for individuals is by using a __Propensity Score__.
+The __Propensity Score__ basically is a __collapsed variable/vector__ which uses methods like Logistic Regression to turn several back-door admissible variables into a score. 
+
+In a causal graph, this process can be portrayed as follows:
+&lt;img src="./Bilder/PropensityScore.png" width="70%" height="70%" style="display: block; margin: auto;" /&gt;
+
+---
+##4. Propensity Score Matching
+
+We already talked about __matching__ in CATE. One method of performing the matching for individuals is by using a __Propensity Score__.
+The __Propensity Score__ basically is a collapsed variable/vector which uses methods like Logistic Regression to turn several back-door admissible variables into a score. 
+
+In a causal graph, this process can be portrayed as follows:
+&lt;img src="./Bilder/PropensityScore.png" width="70%" height="70%" style="display: block; margin: auto;" /&gt;
+
+---
+
+##4. Propensity Score Matching
+
+__Propensity Score Matching__ is often used as a technique in the presence of selection bias or heterogeneous treatment effects. 
+
+In order to control for this background information, we can reduce the dimensions into one scalar and then measure the casual effects holding this scalar constant. 
+
+The __Propensity Score__  is this reduction and measures the probability that an individual is __exposed to treatment__. 
+This corresponds to the previous __treated__ status. However, __exposed to treatment__ underlines that we cannot control which individuals are treated. We merely observe the outcome of an underlying process.
+
+The __Propensity Score__ `\(e_i\)` of an individual subject is defined as: 
+
+`\(e_i = P(x=1|Z=z_j), z_j \in [0,1]\)`
+
+This is the probability that x is equal to 1 (the individual is treated) given that we know its covariate z is equal to the value `\(z_j\)`. Creating matches based on the probability that a subject will receive treatment is called __Propensity Score Matching__. 
+
+---
+##4. Propensity Score Matching
+### Basic steps
+
+What are the basic steps?
+
+__First__, we transform data into training data x and labels y. The columns of x being the covariates and y as a binary vector of the actual treatment received for each subject.
+
+__Second__, we train a logistic regression model on `\(x_0\)`, `\(x_1\)` ... with labels y which looks like this:
+
+`\(\frac{1}{1+e^{-(\alpha+\sum_{i=0}^n\beta_ix_i)}}\)`
+
+__Third__, use the trained model to predict the probability of y=1 for the training data x.
+
+__Fourth__, we now obtained the predicted probabilities which are our propensity scores.
+---
+
+##4. Propensity Score Matching
+
+What does this look like?
+&lt;img src="./Bilder/PropensityScore2.png" width="40%" height="40%" style="display: block; margin: auto;" /&gt;
+
+---
+##4. Propensity Score Matching
+### Matching Algorithms
+The __Matching__ part refers to the process of identifiying groups of individuals with similar propensity scores and comparing the values of their corresponding outcome variables in order to estimate a causal effect. From this result __Matched Samples__ where the propensity score is "constant" across individuals. 
+
+The __Matching__ process is done with matching algorithms. Here we can separate between:
+
+-__optimal matching algorithms__, which minimize the total distance between individuals in every match
+
+-__greedy matching algorithms__, which are much faster than the previous but sacrifice accuracy.
+---
+
+##4. Propensity Score Matching
+### Calculating the Effect with Propensity scores
+Consider the following already matched individuals:
+&lt;img src="./Bilder/PropensityScore3.png" width="60%" height="60%" style="display: block; margin: auto;" /&gt;
+An exposed sample i's match with a similar "unexposed" sample with j(i). The values of the outcome variable is represented as `\(Y_i,Y_j(i)\)`.
+
+`\(Y_i - Y_j(i)\)` is the difference in outcomes between an exposed and unexposed individual in a matched pair.
+
+Following our table, the effect of our __treatment__ is about `\(\frac{3}{8}\)`
+
+---
+
+##4. Propensity Score Matching
+### Issues with Propensity Score Matching
+#### Feature selection
+One of the threats to external validity for propensity score matching is inadequate __feature selection__ which is selecting the confounding variables that are used to create the propensity score.
+
+Here, __unmeasured Confounding Variables__ (For us economists "Omitted Variable Bias") bias our estimate of the individuals.
+This can be tackled with: 
+- Measure as much as possible.
+- Obtain domain expertise and make educated guesses about the variables that influence the estimation.
+- Using sensitivity analysis to quantify the extent to which unmeasured confounding affects the accuracy of the estimation
+---
+
+##4. Propensity Score Matching
+### Issues with Propensity Score Matching
+#### Propensity Score Balance
+
+The second threat to propensity score estimates is the __propensity score balance__ which measures the extent to which observed individuals that are exposed to treatment can be matched with close observed individuals from the __untreated__  (or unexposed) group.
+
+Many times only subsets of our data can be matched, this especially valid for the tails of our sample distribution. This can go to the extremes, so that our external validity of our estimation is no longer given, considering that our sample is no longer representative. 
+
+Without a significant overlap between the propensity scores of individuals exposed and unexposed to treatment, the subsequent matches of these calculated propensity scores will not be large or representative of the population. 
+
+The __Balance__ refers to the extent to which the distribution of propensity scores of individuals exposed and unexposed to the treatment overlap.
+
+This can be measured by calculating the __standardized mean difference__ between the propsenity scores of the exposed and unexposed treatment groups in order to measure the difference between the means of these distributions in a way that is robust to their respective variation.
+---
+
+##4. Propensity Score Matching
+### Issues with Propensity Score Matching
+#### Propensity Score Balance
+
+To leviate this problem, one can use the following techniques for variable selection to help with the feature selection issue:
+
+- __Bayesian Additive Regression Trees (BART)__ Selection Rules  which automatically leverage a machine learning technique for causal inference (BART) to identify the confounding variables which have the greatest effect on exposure to treatment
+- __Covariate Balancing Propensity Score (CBPS)__ a propensity score model which can be used instead of logistic regression in order to model treatment exposure using confounding variables which maximize a propensity score's resulting balance. 
+---
+
+class: middle, center, inverse
+
+#5. Causal Tree Learning
+
+---
+
+background-image: url(https://cdn.fileinfo.com/img/icons/files/128/rproj-10013.png)
+background-position: 95% 5%
+background-size: 7.5%
+layout: true
+---
+##5. Causal Tree Learning
+
+Generalized Random Forests by Athey, Tibshirani and Wagner (2018) follows the idea of Random Forests, this algorithm can also be used for non-parametric quantile regression and instrumental variable regression. It keeps the main structure of Random Forests such as the recursive partitioning, subsampling and random split selection. However, instead of averaging over the trees Generalised Random Forests estimate a weighting function and uses the resulting weights to solve a local GMM model. 
+
+To estimate heterogeneous treatment effects, this algorithm has two important additional features, which distinguish it from standard Random Forests.
+These are the __Splitting Criterion__ and the __Honesty__ of the splitting. 
+---
+
+##5. Causal Tree Learning
+### Introduction to Decision trees
+A __Decision Tree__ is a tool commonly used to make decision utilizing a tree like model to split individuals into subgroups.
+
+For this process of "treeification" analyst tend to use __Classification and Regression Trees (CART)__ as a primary algorithm to split observations into subgroups. Commonly used splitting criteria used for CART are __gini impurity__ and __information gain__ which both determine/measure whether or not an individual belongs to a subgroup given a specific split.
+---
+
+##5. Causal Tree Learning
+### Introduction to Decision trees
+
+
+
+&lt;img src="./Bilder/Tree1.png" width="50%" height="50%" style="display: block; margin: auto;" /&gt;
+Decision trees can help to get very accurate classification and regression results. For this a function mapping characteristics about individuals to the value of a target variable.
+---
+
+##5. Causal Tree Learning
+### Going to causalTrees
+Decision trees for causal inference are generally used to separate data into subgroups, in order to enable estimating average treatment effects within each node. 
+
+The process of decision tree learning for causal inference can be separated into a step for each of these tasks, commonly referred to as the __splitting step__ and the __estimation step__.
+
+The __splitting step__ of decision tree learning for causal inference optimizes a subclassification strategy to maximize the accuracy of a subsequent average treatment effect estimation. We are not interested in the estimation of a particular value of subclassification.
+
+The __estimation step__ uses the tree created in the splitting step. Each leaf of the tree will consist of a group of similar observed individuals exposed and unexposed to treatment. Thus we only have to take the difference of both to obtain the treatment effect. This calculation is an unbiased CATE estimation conditional on the values of variables which define the leaf (the conditional statements on the path from this leaf to the root node).
+
+---
+##5. Causal Tree Learning
+### Modifying CART for Causal Tree Learning
+We need to modify CART since the used splitting criterion does not obtain consistent estimators when creating the tree. This means that their estimated value of an optimal split does not converge to its true value, even when given an infinite amount of data. 
+
+Consistency is a desirable property of a splitting criterion because it allows to evaluate the expected accuracy of a calculated split, given the amount of observed individuals within their data set.
+
+The __splitting criterion__ for for causal tree learning must optimize for two key heuristics:
+
+-Balance between observed individuals in each leaf which are exposed or unexposed to treatment. Ideally, we have equal quantities of these two groups within each subclassification for an unbiased CATE estimation.
+
+-Incorporate the expected accuracy of a CATE estimation made within a particular leaf. If leafs are not split in a way that cleanly separates groups of individuals with disparate outcomes, the accuracy of a resultant heterogeneous treatment effect estimation may significantly diminish.
+
+This is achieved by not relying on __gini impurity__ and __information gain__ but by using __expected mean squared error for treatment effects (EMSE)__ as a splitting criteria.
+
+---
+##5. Causal Tree Learning
+### Modifying CART for Causal Tree Learning
+Here, we have an example of an Causal Tree:
+&lt;img src="./Bilder/Tree3.png" width="40%" height="40%" style="display: block; margin: auto;" /&gt;
+---
+
+
+##5. Causal Tree Learning
+### Modifying CART for Causal Tree Learning
+Additionally, we can have the issue of __overfitting__, which means that our estimation does not extrapolate well to a general population. This is mitigated by using __honesty__ (concept from causal inference literature). At the beginning of the causal tree learning process the data measuring the characteristics and behaviours of observed individuals is separated into two subsamples, a __splitting subsample__ and an __estimating subsample__. This basically mimicks the dividing of our data into training and test data. 
+
+-the __splitting subsample__ is used in the splitting step of causal inference with decision trees
+
+-the __estimating subsample__ is used for the estimation step of causal inference with decision trees and generated unbiased CATE estimates.
+
+---
+
+##5. Causal Tree Learning
+### Modifying CART for Causal Tree Learning
+
+Below we can see a comparison of the accuracy of 
+
+&lt;img src="./Bilder/Tree2.png" width="60%" height="60%" style="display: block; margin: auto;" /&gt;
+
+---
+
+class: middle, center, inverse
+
+#6. Other Techniques
+
+---
+
+background-image: url(https://cdn.fileinfo.com/img/icons/files/128/rproj-10013.png)
+background-position: 95% 5%
+background-size: 7.5%
+layout: true
+---
+##6. Other Techniques
+### Additional Methods
+More and more methods in machine learning are trimmed to fit the requierments for inference and generalization.
+
+A few more examples are: 
+
+-__Causal Bayesian Networks__: Estimates the relationships between all variables in a data set and can be considered as a true discovery method
+  -Enables the discovery of multiple causal relationships
+  -Results in visible map, showing which variable influence each other, as well as to what extend
+
+-__Post double Selection Lasso__
+  -Improves the generalizability of Lasso estimates.
+  
+There are countless new augmented machine learning methods worked on as we speak!
+
+---
+
+
+class: middle, center, inverse
+
+#7. Summing up
+
+---
+
+background-image: url(https://cdn.fileinfo.com/img/icons/files/128/rproj-10013.png)
+background-position: 95% 5%
+background-size: 7.5%
+layout: true
+---
+##7. Summing up
+The __Average Treatment Effect__ can be error prone. __Selection Bias__ and __Heterogeneous Treatment Effects__ can heavily bias our estimates. 
+
+The main issues lies within the problem of estimating the treatment effect of different individuals. People tend to react differently to nudges/treatment from which __Heterogeneous Treatment Effect Biases__ arise. 
+
+Machine Learning methods can alleviate this problem and help solving new types of research questions which allows for the individual on a much greater scale. This way, we can get unbiased estimates of the __Conditional Average Treatment Effects__ which allows for differences in effects for certain subgroups.
+
+
+---
+
+
+class: middle, center, inverse
+
+#Literature
+
+---
+
+background-image: url(https://cdn.fileinfo.com/img/icons/files/128/rproj-10013.png)
+background-position: 95% 5%
+background-size: 7.5%
+layout: true
+---
+##Literature
+
+This presentation is based on the following sources: 
+
+-Smith (2020) Data mining fool's gold
+
+-Wagner and Imbens (2016) Recursive partitioning for heterogeneous causal effects
+
+-Athey (2018) The impact of machine learning on economics
+
+-Wagner and Athey (2018) Generalized Random Forests
+
+-Dastin J (2018) Amazon scraps secret AI recruiting tool that showed bias against women
+
+-Calude and Longo (2017) The deluge of spurious correlations in big data
+
+-Coase (1988) How should economists choose
+
+-Judea Pearl (2018) The Book of Why
+
+-Judea Pearl, Madelyn Glymour, Nicholas P. Jewell (2016) Causal Inference in Statistics
+
+-Scott Cuningham (2021) Causal Inference: The Mixtape
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
